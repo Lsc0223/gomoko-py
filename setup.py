@@ -14,8 +14,7 @@ setup(
         "build_exe": {
             "packages": [],
             "include_files": [],
-            "zipfiles_exclude": [],
-            "dll_exclude": [],
+            "excludes": ["tkinter"],
         }
     },
     executables=[
