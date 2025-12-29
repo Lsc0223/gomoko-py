@@ -30,7 +30,7 @@ jobs:
 
       - name: Build executable with PyInstaller
         run: |
-          pyinstaller --onefile --clean --name gomoko --console --disable-windowed-graphical-utf-8 gobang.py
+          pyinstaller --onefile --clean --name gomoko --console gobang.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
