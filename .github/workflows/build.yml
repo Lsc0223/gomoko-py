@@ -26,43 +26,40 @@ jobs:
 
       - name: Create setup script
         run: |
-          @echo off
-          echo from cx_Freeze import setup, Executable > setup.py
-          echo import sys >> setup.py
-          echo from os.path import dirname >> setup.py
-          echo. >> setup.py
-          echo application_name = "gomoko" >> setup.py
-          echo application_version = "1.0" >> setup.py
-          echo application_description = "ASCII字符五子棋游戏" >> setup.py
-          echo. >> setup.py
-          echo setup( >> setup.py
-          echo     name=application_name, >> setup.py
-          echo     version=application_version, >> setup.py
-          echo     description=application_description, >> setup.py
-          echo     options={ >> setup.py
-          echo         "build_exe": { >> setup.py
-          echo             "packages": [], >> setup.py
-          echo             "include_files": [], >> setup.py
-          echo             "zipfiles_exclude": [], >> setup.py
-          echo             "dll_exclude": [], >> setup.py
-          echo         } >> setup.py
-          echo     }, >> setup.py
-          echo     executables=[ >> setup.py
-          echo         Executable( >> setup.py
-          echo             "gobang.py", >> setup.py
-          echo             base="Console", >> setup.py
-          echo             target_name="gomoko.exe", >> setup.py
-          echo         ) >> setup.py
-          echo     ] >> setup.py
-          echo ) >> setup.py
+          $setup_content = @"
+from cx_Freeze import setup, Executable
+
+setup(
+    name="gomoko",
+    version="1.0",
+    description="ASCII字符五子棋游戏",
+    options={
+        "build_exe": {
+            "packages": [],
+            "include_files": [],
+            "zipfiles_exclude": [],
+            "dll_exclude": [],
+        }
+    },
+    executables=[
+        Executable(
+            "gobang.py",
+            base="Console",
+            target_name="gomoko.exe"
+        )
+    ]
+)
+"@
+          $setup_content | Out-File -Encoding UTF8 setup.py
 
       - name: Build with cx_Freeze
         run: python setup.py build
 
-      - name: Create artifact directory
+      - name: Find and copy executable
         run: |
-          mkdir dist
-          copy "build\exe.win-amd64-*\gomoko.exe" dist\gomoko.exe 2>nul || copy "build\exe.win-amd64-*\gomoko.exe" dist\gomoko.exe
+          $exe = Get-ChildItem -Path build -Filter "gomoko.exe" -Recurse | Select-Object -First 1
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item $exe.FullName -Destination dist\gomoko.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
