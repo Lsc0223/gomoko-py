@@ -26,31 +26,35 @@ jobs:
 
       - name: Create setup script
         run: |
-          $setup_content = @"
-from cx_Freeze import setup, Executable
+          python -c "
+import sys
+setup_content = '''from cx_Freeze import setup, Executable
 
 setup(
-    name="gomoko",
-    version="1.0",
-    description="ASCII字符五子棋游戏",
+    name=\"gomoko\",
+    version=\"1.0\",
+    description=\"ASCII字符五子棋游戏\",
     options={
-        "build_exe": {
-            "packages": [],
-            "include_files": [],
-            "zipfiles_exclude": [],
-            "dll_exclude": [],
+        \"build_exe\": {
+            \"packages\": [],
+            \"include_files\": [],
+            \"zipfiles_exclude\": [],
+            \"dll_exclude\": [],
         }
     },
     executables=[
         Executable(
-            "gobang.py",
-            base="Console",
-            target_name="gomoko.exe"
+            \"gobang.py\",
+            base=\"Console\",
+            target_name=\"gomoko.exe\"
         )
     ]
 )
-"@
-          $setup_content | Out-File -Encoding UTF8 setup.py
+'''
+          with open('setup.py', 'w', encoding='utf-8') as f:
+              f.write(setup_content)
+          print('setup.py created successfully')
+          "
 
       - name: Build with cx_Freeze
         run: python setup.py build
