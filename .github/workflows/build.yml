@@ -21,31 +21,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install cx_Freeze
-        run: pip install cx_Freeze
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
-      - name: Build with cx_Freeze
-        run: python setup.py build
+      - name: Install PyInstaller
+        run: pip install pyinstaller
 
-      - name: Find and copy executable
+      - name: Build executable
         run: |
-          $exe = Get-ChildItem -Path build -Filter "gomoko.exe" -Recurse | Select-Object -First 1
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item $exe.FullName -Destination dist\gomoko.exe
+          pyinstaller --console --name gomoko gobang.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: gomoko-exe
-          path: dist/gomoko.exe
-          retention-days: 5
-
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            build/
-            setup.py
-          retention-days: 5
+          path: dist/
+          retention-days: 1
