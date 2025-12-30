@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ASCII字符五子棋人机对战程序
+ASCII字符五子棋人机对战程序 (增强版 AI)
 Terminal Gobang - Human vs AI Five-in-a-Row Game
 
 功能特性：
 - 15x15标准棋盘
 - 人机对战模式
-- 智能AI对手（基于评分系统）
+- 智能AI对手（基于局部评分与防守逻辑）
 - 悔棋功能
 - 清晰的ASCII界面
 """
@@ -56,7 +56,7 @@ def render_board():
     clear_screen()
     
     print("\n" + "=" * 60)
-    print("          ASCII字符五子棋 - 人机对战 v1.0")
+    print("          ASCII字符五子棋 - 人机对战 v2.0")
     print("=" * 60)
     
     # 显示模式信息
@@ -178,156 +178,135 @@ def check_win(row, col, player):
     
     return False
 
-# ==================== AI系统 ====================
-def evaluate_position(row, col, player):
+# ==================== 增强版 AI 系统 ====================
+def evaluate_point_score(row, col, player):
     """
-    评估某个位置的分数
-    返回进攻分和防守分的元组
+    评估在 (row, col) 落子对特定玩家的得分。
+    只计算涉及该落子点的横、竖、斜四个方向。
     """
-    opponent = WHITE if player == BLACK else BLACK
-    
-    # 临时落子
-    board[row][col] = player
-    attack_score = evaluate_line(player)
-    
-    # 撤销落子
-    board[row][col] = EMPTY
-    
-    # 评估防守（对手在此落子的威胁）
-    board[row][col] = opponent
-    defend_score = evaluate_line(opponent)
-    board[row][col] = EMPTY
-    
-    return attack_score, defend_score
-
-def evaluate_line(player):
-    """评估某个方向上的棋子形态得分"""
     score = 0
+    # 临时落子以模拟棋型
+    board[row][col] = player
     
-    directions = [
-        (0, 1),   # 横向
-        (1, 0),   # 纵向
-        (1, 1),   # 右斜
-        (1, -1)   # 左斜
-    ]
+    # 四个方向：横向，纵向，右斜(\)，左斜
+    directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
     
     for dr, dc in directions:
-        line_score = 0
+        count = 1  # 连子数
+        open_ends = 0  # 两端是否为空位
         
-        # 统计各个方向上的连子数
-        counts = count_consecutive(player, dr, dc)
-        
-        for count, open_ends in counts:
-            if count >= 5:
-                line_score += 100000  # 连五
-            elif count == 4:
-                if open_ends == 2:
-                    line_score += 10000  # 活四
-                else:
-                    line_score += 1000   # 冲四
-            elif count == 3:
-                if open_ends == 2:
-                    line_score += 1000   # 活三
-                else:
-                    line_score += 100    # 眠三
-            elif count == 2:
-                if open_ends == 2:
-                    line_score += 100    # 活二
-                else:
-                    line_score += 10     # 眠二
-        
-        score += line_score
-    
+        # 正方向搜索
+        r, c = row + dr, col + dc
+        while 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == player:
+            count += 1
+            r += dr
+            c += dc
+        # 检查正方向末端是否为空
+        if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == EMPTY:
+            open_ends += 1
+            
+        # 反方向搜索
+        r, c = row - dr, col - dc
+        while 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == player:
+            count += 1
+            r -= dr
+            c -= dc
+        # 检查反方向末端是否为空
+        if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == EMPTY:
+            open_ends += 1
+            
+        # 评分标准 (分值经过调优)
+        if count >= 5:
+            score += 200000   # 连五 (必胜/必防)
+        elif count == 4:
+            if open_ends == 2:
+                score += 20000    # 活四 (必胜)
+            elif open_ends == 1:
+                score += 5000     # 冲四 (高威胁)
+        elif count == 3:
+            if open_ends == 2:
+                score += 1000     # 活三 (进攻潜力)
+            elif open_ends == 1:
+                score += 100      # 眠三
+        elif count == 2:
+            if open_ends == 2:
+                score += 100      # 活二
+            elif open_ends == 1:
+                score += 10       # 眠二
+                
+    # 撤销模拟落子
+    board[row][col] = EMPTY
     return score
 
-def count_consecutive(player, dr, dc):
-    """
-    统计某个方向上连续棋子的数量和两端空位情况
-    返回: [(count, open_ends), ...] 的列表
-    """
-    results = []
-    
-    # 从每个位置开始检查
-    for row in range(BOARD_SIZE):
-        for col in range(BOARD_SIZE):
-            # 只检查起点（避免重复计算）
-            if not (0 <= row - dr < BOARD_SIZE and 0 <= col - dc < BOARD_SIZE):
-                if board[row][col] == player:
-                    # 向两个方向延伸
-                    count = 1
-                    
-                    # 正方向
-                    r, c = row + dr, col + dc
-                    while 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == player:
-                        count += 1
-                        r += dr
-                        c += dc
-                    
-                    # 检查两端
-                    open_ends = 0
-                    if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == EMPTY:
-                        open_ends += 1
-                    
-                    r, c = row - dr, col - dc
-                    if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and board[r][c] == EMPTY:
-                        open_ends += 1
-                    
-                    if count >= 2:  # 只返回有意义的连子
-                        results.append((count, open_ends))
-    
-    return results
-
-def get_ai_move():
-    """AI获取最佳落子位置"""
-    best_score = -1
-    best_moves = []
-    
-    # 获取所有已有棋子周围的有效位置
-    candidates = get_candidate_positions()
-    
-    if not candidates:
-        # 如果棋盘为空，下天元位置
-        return (7, 7)
-    
-    for row, col in candidates:
-        attack_score, defend_score = evaluate_position(row, col, WHITE)
-        total_score = max(attack_score, defend_score)
-        
-        # 中心位置加分
-        center_bonus = 0
-        center_row, center_col = 7, 7
-        dist_from_center = abs(row - center_row) + abs(col - center_col)
-        center_bonus = max(0, 10 - dist_from_center) * 5
-        
-        total_score += center_bonus
-        
-        if total_score > best_score:
-            best_score = total_score
-            best_moves = [(row, col)]
-        elif total_score == best_score:
-            best_moves.append((row, col))
-    
-    # 随机选择最佳位置
-    return random.choice(best_moves)
-
 def get_candidate_positions():
-    """获取候选位置（已有棋子周围1格范围内的空位）"""
+    """获取候选位置（已有棋子周围2格范围内的空位，提高搜索效率）"""
     candidates = set()
-    
+    # 如果是第一手，直接返回中心点
+    if not history:
+        return [(7, 7)]
+        
     for row in range(BOARD_SIZE):
         for col in range(BOARD_SIZE):
             if board[row][col] != EMPTY:
-                # 检查周围8个方向
-                for dr in range(-1, 2):
-                    for dc in range(-1, 2):
+                # 检查周围2格范围
+                for dr in range(-2, 3):
+                    for dc in range(-2, 3):
                         if dr == 0 and dc == 0:
                             continue
-                        
                         nr, nc = row + dr, col + dc
                         if 0 <= nr < BOARD_SIZE and 0 <= nc < BOARD_SIZE and board[nr][nc] == EMPTY:
                             candidates.add((nr, nc))
     
     return list(candidates)
+
+def get_ai_move():
+    """AI获取最佳落子位置"""
+    candidates = get_candidate_positions()
+    best_score = -1
+    best_move = None
+    
+    # 遍历所有候选点
+    for row, col in candidates:
+        # 1. 进攻分：如果AI下这里
+        attack_score = evaluate_point_score(row, col, WHITE)
+        
+        # 2. 防守分：如果玩家下这里
+        defend_score = evaluate_point_score(row, col, BLACK)
+        
+        # 综合得分逻辑
+        score = attack_score + defend_score
+        
+        # --- 决策优先级调整 ---
+        
+        # 1. 如果AI这一步能连五，直接下，分数最高
+        if attack_score >= 200000:
+            return (row, col)
+            
+        # 2. 如果玩家有活四（defend_score >= 20000），这是致命威胁，
+        #    必须阻挡！给一个巨大的加分，确保它比普通进攻优先级高。
+        if defend_score >= 20000:
+            score += 100000 
+            
+        # 3. 如果玩家有冲四（defend_score >= 5000），威胁也很高，
+        #    适当提高防守优先级。
+        elif defend_score >= 5000:
+            score += 2000
+        
+        # --- 其他策略 ---
+        # 如果这一步既能防守又能形成活三/活四，分数会自然叠加
+        
+        # 增加一点位置权重，让AI倾向于走中间（避免在边缘落子）
+        dist_from_center = abs(row - 7) + abs(col - 7)
+        score += max(0, (14 - dist_from_center))
+
+        # 加入微小的随机因子，避免AI每次走法完全一致
+        score += random.randint(0, 5)
+
+        if score > best_score:
+            best_score = score
+            best_move = (row, col)
+            
+    return best_move
 
 # ==================== 游戏控制函数 ====================
 def switch_player():
@@ -423,11 +402,11 @@ def show_menu():
     """显示主菜单"""
     clear_screen()
     print("\n" + "=" * 60)
-    print("          ASCII字符五子棋 - 人机对战 v1.0")
+    print("          ASCII字符五子棋 - 人机对战 v2.0")
     print("=" * 60)
     print("\n  选择游戏模式:")
     print("  1. 人机对战 (玩家执黑先行)")
-    print("  2. 双人人对战")
+    print("  2. 双人本地对战")
     print("  3. 退出游戏")
     print("\n" + "-" * 60)
     
@@ -441,7 +420,7 @@ def show_menu():
             return True
         elif choice == '2':
             ai_enabled = False
-            print_message("选择双人对战模式")
+            print_message("选择双人本地对战模式")
             return True
         elif choice == '3':
             print("\n  感谢使用，再见！")

@@ -29,7 +29,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --console --name gomoko gobang.py
+          pyinstaller --console --name --icon=icon-detailed.ico gomoko gobang.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
